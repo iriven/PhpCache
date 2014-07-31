@@ -58,7 +58,7 @@ class irivenPhpCache {
 		$driver = 'iriven'.$this->settings['activeDriver'];
         require_once($this->settings['drivers']['location'].DIRECTORY_SEPARATOR.$driver.'.php');
         if(!$this->processor = new $driver($this->settings)) throw new Exception('The '.__CLASS__.' driver "'.$this->settings['activeDriver'].'" is not found!');
-		if ($this->settings['path'] and !is_dir($this->settings['path'])) mkdir($this->settings['path'],'0705',true); // create storage dir if needed
+		if ($this->settings['cachePath'] and !is_dir($this->settings['cachePath'])) mkdir($this->settings['cachePath'],'0705',true); // create storage dir if needed
 		return $this;
    }	
 	private function initialize($adapter=null,$params=array())
@@ -68,7 +68,7 @@ class irivenPhpCache {
 				  'errors'			=> array(),
 				  'hook'     		=> false,
 				  'activeDriver'	=> 'auto',
-				  'path'  			=> null,
+				  'cachePath'  			=> null,
 				  'pathVerified'	=> false,
   				  'pluginsPath'		=> rtrim(realpath(__DIR__),DIRECTORY_SEPARATOR).DIRECTORY_SEPARATOR.'Libraries',
 				  'fallback'  		=> array('example'   =>  'files'),
@@ -145,16 +145,16 @@ class irivenPhpCache {
      */
     public function cachePath($create_path = true) {
 
-        if (!isset($this->settings['path']))
+        if (!isset($this->settings['cachePath']))
 		{
             if((PHP_SAPI == 'apache2handler') or (strpos(PHP_SAPI,'handler') !== false)) 
 			{
                 $tmpDir = ini_get('upload_tmp_dir') ? ini_get('upload_tmp_dir') : sys_get_temp_dir();
-                $this->settings['path'] = rtrim($tmpDir,DIRECTORY_SEPARATOR);
-            } else $this->settings['path'] = rtrim(__DIR__,DIRECTORY_SEPARATOR);
+                $this->settings['cachePath'] = rtrim($tmpDir,DIRECTORY_SEPARATOR);
+            } else $this->settings['cachePath'] = rtrim(__DIR__,DIRECTORY_SEPARATOR);
 		}
 		$this->settings['apiKey'] = md5('irivenPhpcache.storage'.sha1(md5(php_uname().PHP_OS.PHP_SAPI)).(isset($_SERVER['HTTP_HOST']) ? $_SERVER['HTTP_HOST'] : get_current_user()));
-		$fullPath = rtrim(preg_replace('#[/\\\\]+#', DIRECTORY_SEPARATOR, $this->settings['path'].DIRECTORY_SEPARATOR.$this->settings['apiKey']), DIRECTORY_SEPARATOR);
+		$fullPath = rtrim(preg_replace('#[/\\\\]+#', DIRECTORY_SEPARATOR, $this->settings['cachePath'].DIRECTORY_SEPARATOR.$this->settings['apiKey']), DIRECTORY_SEPARATOR);
         if($create_path == true and $this->settings['pathVerified'] == false) 
 		{		
 			$mkdir = function ($pathname, $mode = 0705) use (&$mkdir)
@@ -290,7 +290,7 @@ private function driverExists($class) {
 		else 
 		{
 
-            if($name == 'path') 
+            if($name == 'cachePath') 
 			{
                 $this->settings['pathVerified'] = false;
                 $this->processor->settings['pathVerified'] = false;
@@ -477,7 +477,7 @@ private function driverExists($class) {
 			if(!$check->isEnabled()) return false;
 			$value = ltrim($value,'iriven');
 		}
-		if($name == 'path') 
+		if($name == 'cachePath') 
 		{
 			$this->settings['pathVerified'] = false;
 			$this->processor->settings['pathVerified'] = false;
