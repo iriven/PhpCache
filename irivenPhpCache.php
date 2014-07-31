@@ -43,7 +43,7 @@ class irivenPhpCache {
    public function __construct($adapter = null, $option = array()) 
    {	$numargs = func_num_args();
    		$args = func_get_args();
-   		if($numargs = 1)
+   		if($numargs == '1')
 		{
 			if(is_array($args[0])){ $adapter = null; $option = $args[0];}
 			else{ $adapter = $args[0]; $option = array();}	
