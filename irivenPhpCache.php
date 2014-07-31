@@ -70,7 +70,7 @@ class irivenPhpCache {
 				  'activeDriver'	=> 'auto',
 				  'path'  			=> null,
 				  'pathVerified'	=> false,
-  				  'pluginsPath'		=> rtrim(realpath(__DIR__),DIRECTORY_SEPARATOR).DIRECTORY_SEPARATOR.'Cache',
+  				  'pluginsPath'		=> rtrim(realpath(__DIR__),DIRECTORY_SEPARATOR).DIRECTORY_SEPARATOR.'Libraries',
 				  'fallback'  		=> array('example'   =>  'files'),
 				  'extensions'  	=> array(),
 				  'apiKey'   		=> null,  // Key Folder, Setup Per Domain will good.				  																			
