@@ -7,10 +7,10 @@
 * Redistributions of files must retain the above copyright notice.
 *
 * @Copyright 		Copyright (C) 2014 Iriven France Software, Inc.
-* @package 			irivenPhpCache
-* @Since 			Version 1.0.0
-* @link 			https://github.com/iriven/irivenPhpCache The irivenPhpCache GitHub project
-* @author 			Alfred Tchondjo (original founder) <iriven@yahoo.fr>
+* @package 		irivenPhpCache
+* @Since 		Version 1.0.0
+* @link 		https://github.com/iriven/irivenPhpCache The irivenPhpCache GitHub project
+* @author 		Alfred Tchondjo (original founder) <iriven@yahoo.fr>
 * @license  		GPL V3 License(http://www.gnu.org/copyleft/gpl.html)
 *
 * ==================  NOTICE  =======================
