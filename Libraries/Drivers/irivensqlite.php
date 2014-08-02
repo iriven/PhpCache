@@ -20,19 +20,19 @@ class irivensqlite extends irivenPhpCache implements  irivenPhpCacheDriver  {
             throw new Exception('Can\'t use "'.ltrim(__CLASS__,'iriven').'"  driver for your website!');
         }
         if(!is_dir($this->path = $this->cachePath().DIRECTORY_SEPARATOR.ltrim(__CLASS__,'iriven'))) 
-        if(!@mkdir($this->path,0705,true))  die('Sorry, Please CHMOD 0705 for this path: '.$this->path);
+        if(!@mkdir($this->path,0705,true))  throw new Exception('Sorry, Please CHMOD 0705 for this path: '.$this->path);
 		$this->db = new PDO('sqlite:'.$this->path.DIRECTORY_SEPARATOR.'irivendatabase.sqlite');
         $this->db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 		$this->db->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
 		// create cache database
-		$this->db->exec('CREATE TABLE IF NOT EXISTS `irivencache`  (`id` INTEGER PRIMARY KEY AUTOINCREMENT, `keyword` VARCHAR UNIQUE, `content` BLOB, `exp` INTEGER)');
+		$this->db->exec('CREATE TABLE IF NOT EXISTS `irivencache`  (`id` INTEGER PRIMARY KEY AUTOINCREMENT, `keyword` VARCHAR UNIQUE, `content` BLOB, `expirationDate` INTEGER)');
 		// don't verify data on disk
 		$this->db->exec('PRAGMA synchronous = OFF');
 		// turn off rollback
 		$this->db->exec('PRAGMA journal_mode = OFF');
 		// peridically clean the database
 		$this->db->exec('PRAGMA auto_vacuum = INCREMENTAL');		
-		@$this->db->exec('DELETE FROM `irivencache` WHERE `exp`<='.@date('U'));
+		@$this->db->exec('DELETE FROM `irivencache` WHERE `expirationDate`<='.@date('U'));
 		return $this;
     }
     function isEnabled() {
@@ -45,16 +45,16 @@ class irivensqlite extends irivenPhpCache implements  irivenPhpCacheDriver  {
     function write($keyword, $content = '', $time = null, $option = array() ) {
         $skipExisting = isset($option['skipExisting']) ? $option['skipExisting'] : false;
         $toWrite = true;
-		$this->db->exec('DELETE FROM `irivencache` WHERE `exp`<='.@date('U'));
+		$this->db->exec('DELETE FROM `irivencache` WHERE `expirationDate`<='.@date('U'));
         // check in cache first
         if($this->itemExists($keyword) and ($skipExisting == true)) $toWrite = false;
         if($toWrite == true)
 		{
-			  $stm = $this->db->prepare('INSERT OR REPLACE INTO `irivencache` (`keyword`,`content`,`exp`) values(:keyword,:content,:exp)');
+			  $stm = $this->db->prepare('INSERT OR REPLACE INTO `irivencache` (`keyword`,`content`,`expirationDate`) values(:keyword,:content,:expirationDate)');
 			 if( $stm->execute(array(
 				  ':keyword'  => $keyword,
 				  ':content'   =>  $this->encode($content),
-				  ':exp'      => @date('U') + (Int)$time,
+				  ':expirationDate'      => @date('U') + (Int)$time,
 			  )))
 
 			  return true;
@@ -72,8 +72,8 @@ class irivensqlite extends irivenPhpCache implements  irivenPhpCacheDriver  {
             // cache miss			
             if(!$row = $stm->fetch(PDO::FETCH_ASSOC)) return false;
      // time to live elapsed			
-        if(isset($row['exp']) and @date('U') >= $row['exp']) {
-         $stmt = $this->db->prepare('DELETE FROM `irivencache` WHERE (`id`=:id) OR (`exp` <= :U) ');
+        if(isset($row['expirationDate']) and @date('U') >= $row['expirationDate']) {
+         $stmt = $this->db->prepare('DELETE FROM `irivencache` WHERE (`id`=:id) OR (`expirationDate` <= :U) ');
          $stmt->execute(array(
             ':id'   => $row['id'],
             ':U'    =>  @date('U'),
@@ -89,7 +89,7 @@ class irivensqlite extends irivenPhpCache implements  irivenPhpCacheDriver  {
 
 
     function remove($keyword, $option = array()) {
-        $stm = $this->db->prepare('DELETE FROM `irivencache` WHERE (`keyword`=:keyword) OR (`exp` <= :U)');
+        $stm = $this->db->prepare('DELETE FROM `irivencache` WHERE (`keyword`=:keyword) OR (`expirationDate` <= :U)');
         $stm->execute(array(
             ':keyword'   => $keyword,
             ':U'    =>  @date('U'),
@@ -103,7 +103,7 @@ class irivensqlite extends irivenPhpCache implements  irivenPhpCacheDriver  {
 			'filename' =>'irivendatabase.sqlite',
         );
             // get number of items in cache
-			$stm = $this->db->prepare('SELECT * FROM `irivencache` WHERE (`exp` <= :U)');
+			$stm = $this->db->prepare('SELECT * FROM `irivencache` WHERE (`expirationDate` <= :U)');
 			$stm->execute(array(
             		':U'    =>  @date('U'),
         			));
@@ -118,7 +118,6 @@ class irivensqlite extends irivenPhpCache implements  irivenPhpCacheDriver  {
         // close connection
         $this->db = NULL;
         $paths = $this->cachePath();
-		//$path = $this->cachePath().DIRECTORY_SEPARATOR.ltrim(__CLASS__,'iriven');
 		$emptyDir = function ($pathname) 
 				{
 					if(is_file($pathname)) return unlink($pathname);

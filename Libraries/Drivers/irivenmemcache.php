@@ -31,11 +31,11 @@
 **/
 class irivenmemcache extends irivenPhpCache implements  irivenPhpCacheDriver {
 
-    private $instant;
+    private $cache;
 
     function isEnabled() {
         // Check memcache
-        if(function_exists('memcache_connect')) {
+        if(extension_loaded('memcache') and function_exists('memcache_connect')) {
             return true;
         }
         return false;
@@ -46,7 +46,7 @@ class irivenmemcache extends irivenPhpCache implements  irivenPhpCacheDriver {
         if(!$this->isEnabled() and !array_key_exists('skipError',$option)) {
             throw new Exception('Can\'t use "'.ltrim(__CLASS__,'iriven').'"  driver for your website!');
         }
-      if($this->isEnabled()) $this->instant = new Memcache();
+      if($this->isEnabled()) $this->cache = new Memcache();
     }
 
     function connectServer() {
@@ -56,9 +56,9 @@ class irivenmemcache extends irivenPhpCache implements  irivenPhpCacheDriver {
 												);
         foreach($server as $s) {
             $name = $s[0].'_'.$s[1];
-            if(!isset($this->checked[$name])) {
-                $this->instant->addserver($s[0],$s[1]);
-                $this->checked[$name] = 1;
+            if(!isset($this->settings['checked'][$name])) {
+                $this->cache->addserver($s[0],$s[1]);
+                $this->settings['checked'][$name] = 1;
             }
 
         }
@@ -67,10 +67,10 @@ class irivenmemcache extends irivenPhpCache implements  irivenPhpCacheDriver {
     function write($keyword, $value = '', $time = 300, $option = array() ) {
         $this->connectServer();
         if(isset($option['skipExisting']) and $option['skipExisting'] == true) {
-            return $this->instant->add($keyword, $value, false, $time );
+            return $this->cache->add($keyword, $value, false, $time );
 
         } else {
-            return $this->instant->set($keyword, $value, false, $time );
+            return $this->cache->set($keyword, $value, false, $time );
         }
 
     }
@@ -79,7 +79,7 @@ class irivenmemcache extends irivenPhpCache implements  irivenPhpCacheDriver {
         $this->connectServer();
         // return null if no caching
         // return value if in caching
-        $x = $this->instant->get($keyword);
+        $x = $this->cache->get($keyword);
         if($x == false) {
             return null;
         } else {
@@ -89,7 +89,7 @@ class irivenmemcache extends irivenPhpCache implements  irivenPhpCacheDriver {
 
     function remove($keyword, $option = array()) {
         $this->connectServer();
-         $this->instant->delete($keyword);
+         $this->cache->delete($keyword);
     }
 
     function getInfos($option = array()) {
@@ -97,7 +97,7 @@ class irivenmemcache extends irivenPhpCache implements  irivenPhpCacheDriver {
         $res = array(
             'info'  => '',
             'size'  =>  '',
-            'data'  => $this->instant->getStats(),
+            'data'  => $this->cache->getStats(),
         );
 
         return $res;
@@ -106,7 +106,7 @@ class irivenmemcache extends irivenPhpCache implements  irivenPhpCacheDriver {
 
     function cleanup($option = array()) {
         $this->connectServer();
-        $this->instant->flush();
+        $this->cache->flush();
     }
 
     function itemExists($keyword) {

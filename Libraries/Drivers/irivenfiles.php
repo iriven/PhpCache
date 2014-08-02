@@ -29,9 +29,9 @@
 * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 * or contact the author by mail at: <iriven@yahoo.fr>.
 **/class irivenfiles extends  irivenPhpCache implements  irivenPhpCacheDriver  {
-
+ private $path;
     function isEnabled() {
-        if(is_writable($this->cachePath())) {
+        if(is_dir($this->cachePath()) and is_writable($this->cachePath())) {
             return true;
         } else {
 
@@ -45,7 +45,8 @@
     function __construct($option = array()) {
 
         $this->setOption($option);
-        $this->cachePath();
+        if(!is_dir($this->path = $this->cachePath().DIRECTORY_SEPARATOR.ltrim(__CLASS__,'iriven'))) 
+        @mkdir($this->path,0705,true);
         if(!$this->isEnabled() and !isset($option['skipError'])) {
             throw new Exception('Can\'t use "'.ltrim(__CLASS__,'iriven').'"  driver for your website!');
         }
@@ -54,7 +55,7 @@
 
     function write($keyword, $value = '', $time = null, $option = array() ) {
 		$code = md5($keyword);
-        $path = $this->cachePath().DIRECTORY_SEPARATOR.ltrim(__CLASS__,'iriven').DIRECTORY_SEPARATOR.substr(md5($keyword),0,2);
+        $path = $this->path.DIRECTORY_SEPARATOR.substr(md5($keyword),0,2);
 		if(!file_exists($path) and !@mkdir($path,0604,true)) 
 			throw new Exception('PLEASE CHMOD '.$this->cachePath().' - 0777 OR ANY WRITABLE PERMISSION!',92);
 		$file_path = $path.DIRECTORY_SEPARATOR.$code.'.cache';
@@ -80,7 +81,7 @@
     function read($keyword, $option = array()) {
 
 		$code = md5($keyword);
-        $path = $this->cachePath().DIRECTORY_SEPARATOR.ltrim(__CLASS__,'iriven').DIRECTORY_SEPARATOR.substr(md5($keyword),0,2);
+        $path = $this->path.DIRECTORY_SEPARATOR.substr(md5($keyword),0,2);
 		$file_path = $path.DIRECTORY_SEPARATOR.$code.'.cache';
         if(!file_exists($file_path)) {
             return null;
@@ -98,7 +99,7 @@
 
     function remove($keyword, $option = array()) {
 		$code = md5($keyword);
-        $path = $this->cachePath().DIRECTORY_SEPARATOR.ltrim(__CLASS__,'iriven').DIRECTORY_SEPARATOR.substr(md5($keyword),0,2);
+        $path = $this->path.DIRECTORY_SEPARATOR.substr(md5($keyword),0,2);
 		$file_path = $path.DIRECTORY_SEPARATOR.$code.'.cache';
         if(@unlink($file_path)) {
             return true;
@@ -187,7 +188,7 @@
 
     function itemExists($keyword){
 		$code = md5($keyword);
-        $path = $this->cachePath().DIRECTORY_SEPARATOR.ltrim(__CLASS__,'iriven').DIRECTORY_SEPARATOR.substr(md5($keyword),0,2);
+        $path = $this->path.DIRECTORY_SEPARATOR.substr(md5($keyword),0,2);
 		$file_path = $path.DIRECTORY_SEPARATOR.$code.'.cache';
         if(!file_exists($file_path)) {
             return false;

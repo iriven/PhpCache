@@ -31,10 +31,6 @@
 **/
 // main class
 class irivenPhpCache {
-    private  $checked = array(
-        'fallback'  => false,
-        'hook'      => false,
-    );
 	private $lifetime = 86400; //1 day
     private $processor = NULL;
     // default options, this will be merge to Driver's Options
@@ -52,13 +48,14 @@ class irivenPhpCache {
    		{
 			if(is_numeric($option['lifetime'])) $this->lifetime = intval($option['lifetime']);
 			unset($option['lifetime']);
-		} 
+		} 		
 		$this->initialize($adapter,$option);
-        if(!$this->driverExists($this->settings['activeDriver'])) $this->settings['activeDriver'] = $this->autoDriver();
-		$driver = 'iriven'.$this->settings['activeDriver'];
+        if(!$this->driverExists($this->settings['adapter'])) $this->settings['adapter'] = $this->autoSetAdapter();
+		$driver = 'iriven'.$this->settings['adapter'];
         require_once($this->settings['drivers']['location'].DIRECTORY_SEPARATOR.$driver.'.php');
-        if(!$this->processor = new $driver($this->settings)) throw new Exception('The '.__CLASS__.' driver "'.$this->settings['activeDriver'].'" is not found!');
-		if ($this->settings['cachePath'] and !is_dir($this->settings['cachePath'])) mkdir($this->settings['cachePath'],'0705',true); // create storage dir if needed
+		$this->settings['skipError'] = false;
+        if(!$this->processor = new $driver($this->settings)) throw new Exception('The '.__CLASS__.' driver "'.$this->settings['adapter'].'" is not found!');
+		if ($this->settings['path'] and !is_dir($this->settings['path'])) mkdir($this->settings['path'],'0705',true); // create storage dir if needed
 		return $this;
    }	
 	private function initialize($adapter=null,$params=array())
@@ -66,33 +63,34 @@ class irivenPhpCache {
 		  $this->settings = array(
 				  'system'    		=> array(),
 				  'errors'			=> array(),
-				  'hook'     		=> false,
-				  'activeDriver'	=> 'auto',
-				  'cachePath'  			=> null,
+				  'adapter'	=> 'auto',
+				  'path'  			=> null,
 				  'pathVerified'	=> false,
   				  'pluginsPath'		=> rtrim(realpath(__DIR__),DIRECTORY_SEPARATOR).DIRECTORY_SEPARATOR.'Libraries',
 				  'fallback'  		=> array('example'   =>  'files'),
 				  'extensions'  	=> array(),
 				  'apiKey'   		=> null,  // Key Folder, Setup Per Domain will good.				  																			
-				  'drivers' 		=> array(),	
+				  'drivers' 		=> array(),
+				  'checked' 		=> array('fallback'  => false, 'hook'  => false),	
 				  'server'      	=> array(
-											  array('127.0.0.1',11211,1),
+											  array('127.0.0.1',11211,1)
 										  //  array('new.host.ip',11211,1),
 											),				  
 				);
 		$this->settings['drivers']['location'] = $this->settings['pluginsPath'].DIRECTORY_SEPARATOR.'Drivers';
 		$this->settings['extensions']['location'] = $this->settings['pluginsPath'].DIRECTORY_SEPARATOR.'Extensions';
 		require $this->settings['pluginsPath'].DIRECTORY_SEPARATOR.'driver.php';	
-		$this->settings = array_merge($this->settings ,$this->systemInfo(), $params);
+		$this->settings = array_merge($this->settings ,$this->systemInfo());
 		if(isset($this->settings['fallback'][$adapter])) $adapter = $this->settings['fallback'][$adapter];				
-		if($adapter) $this->setup('activeDriver',$adapter);
+		if($adapter) $params['adapter']=$adapter;
+		foreach($params as $key=>$value) $this->setup($key,$value);
 		return $this->settings;
 	}
     /*
      * Auto Create .htaccess to protect cache folder
      */
 
-    private function genHtaccess($path = '') {	
+    private function createHtaccess($path = '') {	
 			$file = rtrim(preg_replace('#[/\\\\]+#', DIRECTORY_SEPARATOR, $path), DIRECTORY_SEPARATOR).DIRECTORY_SEPARATOR.'.htaccess';
 			if(!file_exists($file))
 			{
@@ -113,7 +111,7 @@ class irivenPhpCache {
      *
      */
 
-   private function autoDriver() {
+   private function autoSetAdapter() {
         $driver = 'files';
         if(extension_loaded('apc') 	and ini_get('apc.enabled') 	and strpos(PHP_SAPI,'CGI') === false) $driver = 'apc';
         elseif(function_exists('eaccelerator_get') and function_exists('eaccelerator_put')) $driver = 'eaccelerator';
@@ -144,17 +142,16 @@ class irivenPhpCache {
      * return PATH for Files & PDO only
      */
     public function cachePath($create_path = true) {
-
-        if (!isset($this->settings['cachePath']))
+        if (!isset($this->settings['path']))
 		{
             if((PHP_SAPI == 'apache2handler') or (strpos(PHP_SAPI,'handler') !== false)) 
 			{
                 $tmpDir = ini_get('upload_tmp_dir') ? ini_get('upload_tmp_dir') : sys_get_temp_dir();
-                $this->settings['cachePath'] = rtrim($tmpDir,DIRECTORY_SEPARATOR);
-            } else $this->settings['cachePath'] = rtrim(__DIR__,DIRECTORY_SEPARATOR);
+                $this->settings['path'] = rtrim($tmpDir,DIRECTORY_SEPARATOR);
+            } else $this->settings['path'] = rtrim(__DIR__,DIRECTORY_SEPARATOR);
 		}
 		$this->settings['apiKey'] = md5('irivenPhpcache.storage'.sha1(md5(php_uname().PHP_OS.PHP_SAPI)).(isset($_SERVER['HTTP_HOST']) ? $_SERVER['HTTP_HOST'] : get_current_user()));
-		$fullPath = rtrim(preg_replace('#[/\\\\]+#', DIRECTORY_SEPARATOR, $this->settings['cachePath'].DIRECTORY_SEPARATOR.$this->settings['apiKey']), DIRECTORY_SEPARATOR);
+		$fullPath = rtrim(preg_replace('#[/\\\\]+#', DIRECTORY_SEPARATOR, $this->settings['path'].DIRECTORY_SEPARATOR.$this->settings['apiKey']), DIRECTORY_SEPARATOR);
         if($create_path == true and $this->settings['pathVerified'] == false) 
 		{		
 			$mkdir = function ($pathname, $mode = 0705) use (&$mkdir)
@@ -174,7 +171,7 @@ class irivenPhpCache {
             if(!file_exists($fullPath) and !$mkdir($fullPath)) 
                 throw new Exception('Sorry, Please create '.$fullPath.' and SET Mode 0705 or any Writable Permission!' , 100);
             $this->settings['pathVerified'] = true;
-            $this->genHtaccess($fullPath);
+            $this->createHtaccess($fullPath);
         }
         return  $fullPath;
     }	
@@ -192,7 +189,7 @@ private function driverExists($class) {
     /*
      * return System Information
      */
-    public function systemInfo() {
+    private function systemInfo() {
         if(!count($this->settings['system'])) 
 		{
 			$this->settings['system']= array(
@@ -202,7 +199,7 @@ private function driverExists($class) {
 									  'unique'    => md5(php_uname().PHP_OS.PHP_SAPI)
 								  );
 
-            $this->settings['activeDriver'] = 'files';
+            $this->settings['adapter'] = 'files';
             $path = $this->settings['drivers']['location'];
 			if(!is_dir($path)) throw new Exception('Can\'t open file dir ext',100);
 			$files = array_map('basename',glob($path.DIRECTORY_SEPARATOR.'*.php'));
@@ -217,7 +214,7 @@ private function driverExists($class) {
 					$driver = new $class($option);
 					if($driver->isEnabled())
 					{       $this->settings['drivers']['list'][$driverName] = true;
-							$this->settings['activeDriver'] = $driverName;
+							$this->settings['adapter'] = $driverName;
 					}	
 					else	$this->settings['drivers']['list'][$driverName] = false;	
 
@@ -227,7 +224,7 @@ private function driverExists($class) {
              * PDO is highest priority with SQLite
              */
             if($this->settings['drivers']['list']['sqlite'] == true) {
-                $this->settings['activeDriver'] = 'sqlite';
+                $this->settings['adapter'] = 'sqlite';
             }
 
         }
@@ -236,11 +233,11 @@ private function driverExists($class) {
     /*
      * Object for Files & SQLite
      */
-    public function encode($data) {
+    protected  function encode($data) {
         return json_encode(serialize($data));
     }
 
-    public function decode($value) {
+   protected  function decode($value) {
 		$value = json_decode($value);
         if(!$x = @unserialize($value)) return $value;
         return $x;
@@ -250,7 +247,7 @@ private function driverExists($class) {
      * Use file_put_contents OR ALT write
      */
 
-    function writefile($file, $data)
+   protected  function writefile($file, $data)
 	{
 		$file = rtrim(preg_replace('#[/\\\\]+#', DIRECTORY_SEPARATOR, $file), DIRECTORY_SEPARATOR);
 		if(function_exists('file_put_contents')) return file_put_contents($file, $data, LOCK_EX);
@@ -266,7 +263,7 @@ private function driverExists($class) {
      * Use file_get_contents OR ALT read
      */
 
-    function readfile($file) {
+  protected  function readfile($file) {
 		$file = rtrim(preg_replace('#[/\\\\]+#', DIRECTORY_SEPARATOR, $file), DIRECTORY_SEPARATOR);
         if(function_exists('file_get_contents'))  return file_get_contents($file);
             $string = '';
@@ -290,7 +287,7 @@ private function driverExists($class) {
 		else 
 		{
 
-            if($name == 'cachePath') 
+            if($name == 'path') 
 			{
                 $this->settings['pathVerified'] = false;
                 $this->processor->settings['pathVerified'] = false;
@@ -301,21 +298,21 @@ private function driverExists($class) {
         }
     }
 
-    public function setOption($option = array()) {
+    protected function setOption($option = array()) {
         $this->settings = array_merge($this->settings, $option);
         $this->settings['pathVerified'] = false;
+
     }	
     /*
      * Basic Method
      */
     public function set($keyword, $value = '', $lifetime = null, $option = array() ) 
 	{
-/*		if(func_num_args()='1' and is_array($keyword)) 
+		if(func_num_args()=='1' and is_array($keyword)) 
 		{
 		    foreach($keyword as $item)
             $this->set($item[0],isset($item[1]) ? $item[1] : '', isset($item[2]) ? $item[2] : $this->lifetime, isset($item[3]) ? $item[3] : array());
         }
-*/
 		$lifetime = ($lifetime and is_numeric($lifetime))? intval($lifetime): $this->lifetime;
         $object = array(
 						  'value' => is_array($value)? array_map('utf8_encode',$value) : utf8_encode($value),
@@ -330,7 +327,7 @@ private function driverExists($class) {
 
    public function get($keyword, $option = array())
    {
-/*	   if(func_num_args()='1' and is_array($keyword)) 
+	   if(func_num_args()=='1' and is_array($keyword)) 
 		{
 		   $res = array();
 		  foreach($keyword as $array)
@@ -339,12 +336,12 @@ private function driverExists($class) {
 			  $res[$name] = $this->get($name, isset($array[1]) ? $array[1] : array());
 		  }
 		  return $res;
-		}*/
+		}
         $object = $this->processor->read($keyword,$option);
         if($object == null) return null;
         return is_array($object['value'])? array_map('utf8_decode',$object['value']) : utf8_decode($object['value']);
     }
-    function isCached($keyword) {
+   public function isCached($keyword) {
 		if(is_array($keyword)) 
 		{		
 			$res = array();
@@ -357,9 +354,9 @@ private function driverExists($class) {
         if(!$data) return false;
         return true;
     }
-    function getInfo($keyword, $option = array()) 
+   public  function getInfo($keyword, $option = array()) 
 	{
-/*		if(func_num_args()='1' and is_array($keyword)) 
+		if(func_num_args()=='1' and is_array($keyword)) 
 		{		
 		  $res = array();
 		  foreach($keyword as $array) {
@@ -367,7 +364,7 @@ private function driverExists($class) {
 			  $res[$name] = $this->getInfo($name, isset($array[1]) ? $array[1] : array());
 		  }
 		  return $res;
-		}*/
+		}
         $object = $this->processor->read($keyword,$option);
 		if($object == null) return null;
         return $object;
@@ -375,18 +372,18 @@ private function driverExists($class) {
 
     public function delete($keyword, $option = array()) 
 	{
-	/*	if(func_num_args()='1' and is_array($keyword)) 
+		if(func_num_args()=='1' and is_array($keyword)) 
 		{
 		    foreach($keyword as $array)
             $this->delete($array[0], isset($array[1]) ? $array[1] : array());
 			return;
-        }*/
+        }
         return $this->processor->remove($keyword,$option);
     }
 
     public function stats($option = array()) 
 	{
-		return $this->processor->getInfos($option);
+		return array_merge($this->settings,$this->processor->getInfos($option));
     }
 
     public function clear($option = array()) 
@@ -397,7 +394,7 @@ private function driverExists($class) {
     function increment($keyword, $step = 1 , $option = array()) 
 	{
 		
-/*		if(func_num_args()='1' and is_array($keyword))
+		if(func_num_args()=='1' and is_array($keyword))
 		{
 			$res = array();
 			foreach($keyword as $array) {
@@ -405,7 +402,7 @@ private function driverExists($class) {
 				$res[$name] = $this->increment($name, $array[1], isset($array[2]) ? $array[2] : array());
 			}
 			return $res;
-		}*/		
+		}		
         $object = $this->get($keyword);
         if(!$object) {
             return false;
@@ -418,14 +415,14 @@ private function driverExists($class) {
     }
 
     function decrement($keyword, $step = 1 , $option = array()) {
-	/*	if(func_num_args()='1' and is_array($keyword)){
+		if(func_num_args()=='1' and is_array($keyword)){
 			$res = array();
 			foreach($keyword as $array) {
 				$name = $array[0];
 				$res[$name] = $this->decrement($name, $array[1], isset($array[2]) ? $array[2] : array());
 			}
 			return $res;
-		}	*/	
+		}		
         $object = $this->get($keyword);
         if($object == null) {
             return false;
@@ -440,14 +437,14 @@ private function driverExists($class) {
      * Extend more time
      */
     function touch($keyword, $time = 300, $option = array()) {
-	/*	if(func_num_args()='1' and is_array($keyword)){
+		if(func_num_args()=='1' and is_array($keyword)){
         $res = array();
         foreach($list as $array) {
             $name = $array[0];
             $res[$name] = $this->touch($name, $array[1], isset($array[2]) ? $array[2] : array());
         }
         return $res;
-    	}	*/	
+    	}		
         $object = $this->get($keyword);
         if($object == null) {
             return false;
@@ -463,13 +460,12 @@ private function driverExists($class) {
      */
     public function setup($name,$value = null) 
 	{
-
         if(is_array($name)) 
 		{
 			foreach($name as $n=>$value) $this->setup($n,$value);
 			return;
 		}
-		if($name == 'activeDriver')
+		if($name == 'adapter')
 		{ 	if(!$this->driverExists($value)) return false;
 			$value = 'iriven'.ltrim($value,'iriven');
 			$option['skipError']=true;
@@ -477,7 +473,7 @@ private function driverExists($class) {
 			if(!$check->isEnabled()) return false;
 			$value = ltrim($value,'iriven');
 		}
-		if($name == 'cachePath') 
+		if($name == 'path') 
 		{
 			$this->settings['pathVerified'] = false;
 			$this->processor->settings['pathVerified'] = false;

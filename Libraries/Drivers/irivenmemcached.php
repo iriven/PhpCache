@@ -28,9 +28,10 @@
 * along with this program; if not, write to the Free Software
 * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 * or contact the author by mail at: <iriven@yahoo.fr>.
-**/class irivenmemcached extends irivenPhpCache implements  irivenPhpCacheDriver  {
+**/
+class irivenmemcached extends irivenPhpCache implements  irivenPhpCacheDriver  {
 
-    private $instant;
+    private $cache;
 
     function isEnabled() {
         if(class_exists('Memcached')) {
@@ -45,7 +46,7 @@
             throw new Exception('Can\'t use "'.ltrim(__CLASS__,'iriven').'"  driver for your website!');
         }
 
-       if($this->isEnabled()) $this->instant = new Memcached();
+       if($this->isEnabled()) $this->cache = new Memcached();
     }
 
     function connectServer() {
@@ -61,13 +62,13 @@
             $port = isset($server[1]) ? $server[1] : 11211;
             $sharing = isset($server[2]) ? $server[2] : 0;
             $checked = $name.'_'.$port;
-            if(!isset($this->checked[$checked])) {
+            if(!isset($this->settings['checked'][$checked])) {
                 if($sharing >0 ) {
-                    $this->instant->addServer($name,$port,$sharing);
+                    $this->cache->addServer($name,$port,$sharing);
                 } else {
-                    $this->instant->addServer($name,$port);
+                    $this->cache->addServer($name,$port);
                 }
-                $this->checked[$checked] = 1;
+                $this->settings['checked'][$checked] = 1;
             }
         }
     }
@@ -75,9 +76,9 @@
     function write($keyword, $value = '', $time = 300, $option = array() ) {
         $this->connectServer();
         if(isset($option['isExisting']) and $option['isExisting'] == true) {
-            return $this->instant->add($keyword, $value, time() + $time );
+            return $this->cache->add($keyword, $value, time() + $time );
         } else {
-            return $this->instant->set($keyword, $value, time() + $time );
+            return $this->cache->set($keyword, $value, time() + $time );
 
         }
     }
@@ -86,7 +87,7 @@
         // return null if no caching
         // return value if in caching
         $this->connectServer();
-        $x = $this->instant->get($keyword);
+        $x = $this->cache->get($keyword);
         if($x == false) {
             return null;
         } else {
@@ -96,7 +97,7 @@
 
     function remove($keyword, $option = array()) {
         $this->connectServer();
-        $this->instant->delete($keyword);
+        $this->cache->delete($keyword);
     }
 
     function getInfos($option = array()) {
@@ -104,7 +105,7 @@
         $res = array(
         'info' => '',
         'size'  =>  '',
-        'data'  => $this->instant->getStats(),
+        'data'  => $this->cache->getStats(),
         );
 
         return $res;
@@ -112,7 +113,7 @@
 
     function cleanup($option = array()) {
         $this->connectServer();
-        $this->instant->flush();
+        $this->cache->flush();
     }
 
     function itemExists($keyword) {
@@ -124,7 +125,5 @@
             return true;
         }
     }
-
-
 
 }
