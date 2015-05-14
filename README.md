@@ -33,7 +33,8 @@ EXAMPLE
    if(!$test = $cache->get('famille')) $cache->set('famille','les parents et les enfants');
    
    echo $cache->get('famille'). ' - '.$cache->get('dejeuner');
-   
+   $txt = sprintf("%s ont pris chacun au petit-dejeuné: %s.",$cache->get('famille'),$cache->get('dejeuner'));
+   echo $txt;
    print_r($cache->stats());
    
    $cache->clear();
